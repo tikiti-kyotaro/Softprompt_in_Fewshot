@@ -1,0 +1,3 @@
+#python3 train_e2e.py --optim_prefix yes --preseqlen 5 --epoch 5 --learning_rate 0.00005 --mode webnlg --bsz 5 --seed 101
+# python3 train_e2e.py --optim_prefix yes --preseqlen 5 --epoch 5 --learning_rate 0.00005 --mode classify-sentiment --bsz 5 --seed 101
+python3 train_e2e.py --optim_prefix yes --preseqlen 5 --epoch 5 --learning_rate 0.00005 --mode classify-sentiment --bsz 5 --seed 101 > log_finetune.txt
