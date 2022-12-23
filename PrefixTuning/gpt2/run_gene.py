@@ -1257,7 +1257,6 @@ def main():
 
             elif decode_mode == 'greedy':  # 生成する
                 with open("/home/kyotaro/prompt-order/contexts/prompt_sample_6.txt", "r") as in_:
-                    a = 0
                     for i, line in enumerate(in_):
                         line = line.strip()
                         new_encoded_prompt = tokenizer.encode(line, add_special_tokens=False, return_tensors="pt")  # 重要ポイント
@@ -1282,8 +1281,7 @@ def main():
                         new_prompt = tuple(replace_tensor)
                         print(new_prompt[0].shape)
                         print(len(new_prompt))
-                        a += 1
-                    print(a)
+
 
 
                     new_prompt = [x.expand(-1, args.num_return_sequences , -1, -1, -1) for x in new_prompt]  # ここがsoft prompt(prefix)？
