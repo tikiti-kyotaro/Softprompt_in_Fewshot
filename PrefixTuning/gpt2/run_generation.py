@@ -1254,36 +1254,10 @@ def main():
                 )
                 # print(output_sequences)
 
-
-            elif decode_mode == 'greedy':  # 生成する
-                with open("/home/kyotaro/prompt-order/contexts/prompt_sample_6.txt", "r") as in_:
-                    a = 0
-                    for i, line in enumerate(in_):
-                        line = line.strip()
-                        new_encoded_prompt = tokenizer.encode(line, add_special_tokens=False, return_tensors="pt")  # 重要ポイント
-                        new_input_ids = new_encoded_prompt.to(args.device)
-
-                        if i == 0:
-                            new_prompt = prompt
-
                         output = gpt2(
                             input_ids=new_input_ids,
                             emb_match=None,
                             control_code=None,
-                            past_key_values=new_prompt,
-                            return_dict=True,
-                            use_cache=True
-                        )
-
-                        p_x_y = output.past_key_values  # pxy を得る
-                        replace_tensor = []
-                        for x, y in zip(p_x_y, prompt):
-                            replace_tensor.append(torch.cat((x, y), dim=3))  # pxyp を得る（new_prompt）
-                        new_prompt = tuple(replace_tensor)
-                        print(new_prompt[0].shape)
-                        print(len(new_prompt))
-                        a += 1
-                    print(a)
 
 
                     new_prompt = [x.expand(-1, args.num_return_sequences , -1, -1, -1) for x in new_prompt]  # ここがsoft prompt(prefix)？
