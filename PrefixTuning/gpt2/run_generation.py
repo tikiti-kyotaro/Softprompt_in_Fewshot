@@ -412,7 +412,6 @@ def make_prompt_vector(input_text, tokenizer, model):  # 入力文の埋め込�
 
 
 def main():
-    print(1111111111111111111111111111111111111111)
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--model_type",
@@ -466,7 +465,7 @@ def main():
     parser.add_argument("--k", type=int, default=0)
     parser.add_argument("--p", type=float, default=0.9)
 
-    parser.add_argument("--tuning_mode", type=str, default="finetune", help="prefixtune or finetune")
+    parser.add_argument("--tuning_mode", type=str, default="prefixtune", help="prefixtune or finetune")
     parser.add_argument("--eval_dataset", type=str, default="val", help="val or test")
     parser.add_argument("--objective_mode", type=int, default=2)
     parser.add_argument("--format_mode", type=str, default="peek", help="peek, cat, nopeek, or infix")
@@ -910,7 +909,7 @@ def main():
         QUICK_CHECK = False
         if args.task_mode == 'classify-sentiment':
             # test_path = "/u/scr/xlisali/IMDB/test.txt"  変更点
-            test_path = "/home/kyotaro/prompt-order/SST-2/new/gen_test.txt"  # 変変 model
+            test_path = "/home/kyotaro/prompt-order/SST-2/new/used_data/test.txt"  # 変変 model
             # test_path = "/home/kyotaro/prompt-order/SST-2/new/add_context/test/test_p8.txt"  # 変変変 normal
             # test_path = "/home/kyotaro/prompt-order/SST-2/new/add_context/test/test_p8_remake.txt"  # 変変変 It is 
             # test_path = "/home/kyotaro/prompt-order/SST-2/new/add_context/test/test_p1_remake.txt"  # 変変変 Review-Sentiment
@@ -1202,13 +1201,16 @@ def main():
             #     prompt = None
             # else:
             # print(args.num_return_sequences)
+
             prompt = [x.expand(-1, args.num_return_sequences , -1, -1, -1) for x in prompt]  # ここがsoft prompt(prefix)？
+
             # print(prompt[0].shape)
             # print(input_ids.shape)
 
             # assert control_code is None
             print(decode_mode)
             print(f'prompt : {prompt[0].shape}')
+            print(f'prompt_length : {len(prompt)}')
             print(f'embedding : {inputs_embeds.shape}')
             
             if decode_mode == 'nucleus':
@@ -1234,7 +1236,7 @@ def main():
                 # print(prompt[5][0][0][0])
 
                 #############################
-                output_sequences = gpt2.generate(
+                output_sequences = gpt2(
                     input_ids=input_ids,
                     emb_match=None,
                     control_code=None,
@@ -1251,13 +1253,85 @@ def main():
                     num_return_sequences=1,
                 )
                 # print(output_sequences)
-
             elif decode_mode == 'greedy':  # 生成する
+                with open("/home/kyotaro/prompt-order/contexts/prompt_sample_6.txt", "r") as in_:
+                    for i, line in enumerate(in_):
+                        # 各 context に対して ID を生成
+                        line = line.strip()
+                        new_encoded_prompt = tokenizer.encode(line, add_special_tokens=False, return_tensors="pt")  # 重要ポイント
+                        new_encoded_prompt = new_encoded_prompt.to(args.device)
+                        if encoded_prompt.size()[-1] == 0:
+                            new_input_ids = None
+                        else:
+                            new_input_ids = new_encoded_prompt
+                        # 各 ID に対して GPT2 を適用
+                        output = gpt2(
+                            input_ids=new_input_ids,
+                            emb_match=None,
+                            control_code=None,
+                            past_key_values=prompt,  # ここに入るものを Prefix のモデルでいじってる？
+                            return_dict=True,
+                            use_cache=True
+                        )
+                        # print(f'len(output.past_key_values) : {len(output.past_key_values)}')
+                        # print(f'past_key_values.shape : {output.past_key_values[0].shape}')
+                        if i == 0:
+                            new_prompt = output.past_key_values
+                            # print(f'new_prompt[0].shape : {new_prompt[0].shape}')
+                        else:
+                            # new_prompt : 今までのprompt, prompt[0] : soft prompt, output.past_key_values[0] : context の 情報 
+                            replace_tensor = []
+                            for i, (x, y, z) in enumerate(zip(new_prompt, prompt, output.past_key_values)):
+                                replace_tensor.append(torch.cat((x, y, z), dim=3))
+                            new_prompt = tuple(replace_tensor)
+                            # print(new_prompt[0].shape)
+                            # print(len(new_prompt))
+                            # new_prompt = torch.cat((new_prompt, prompt), dim=3)
+                        # print(f'new_prompt.shape : {new_prompt.shape}')
+
+                    new_prompt = [x.expand(-1, args.num_return_sequences , -1, -1, -1) for x in new_prompt]  # ここがsoft prompt(prefix)？
+                        # print(f'new_prompt.shape : {new_prompt[0].shape}')
+                        
+                            
+                        # print(f'new_input_ids : {new_input_ids}')
+
+  
+                # output_sequences = gpt2.generate(
+                #     input_ids=input_ids,
+                #     emb_match=None,
+                #     control_code=None,
+                #     past_key_values=prompt,  # ここに入るものを Prefix のモデルでいじってる？
+                #     max_length=args.length + len(encoded_prompt[0]),
+                #     min_length=5,
+                #     temperature=args.temperature,
+                #     top_k=args.k,
+                #     top_p=0.5,
+                #     repetition_penalty=args.repetition_penalty,
+                #     do_sample=False,
+                #     bad_words_ids=[[628], [198]] if True else None,
+                #     num_return_sequences=1,
+                # )  # output_sequence が生成結果
+                # output = gpt2(
+                #     input_ids=input_ids,
+                #     emb_match=None,
+                #     control_code=None,
+                #     past_key_values=prompt,  # ここに入るものを Prefix のモデルでいじってる？
+                #     return_dict=True,
+                #     use_cache=True
+                # )  # output_sequence が生成結果
+                # new_prompt = output.past_key_values
+                # new_prompt = [x.expand(-1, args.num_return_sequences , -1, -1, -1) for x in new_prompt]
+                print(f'new_prompt の長さ : {len(new_prompt)}')
+                print(f'new_prompt の shape : {new_prompt[0].shape}')
+                print(f'prompt の shape : {prompt[0].shape}')
+                print(f'input_ids の長さ : {len(input_ids[0])}')
+                # new_prompt = torch.cat()
+                # print(f'new_prompt のサイズ : {new_prompt.shape}')
                 output_sequences = gpt2.generate(
                     input_ids=input_ids,
                     emb_match=None,
                     control_code=None,
-                    past_key_values=prompt,  # ここに入るものを Prefix のモデルでいじってる？
+                    past_key_values=new_prompt,  # ここに入るものを Prefix のモデルでいじってる？
                     max_length=args.length + len(encoded_prompt[0]),
                     min_length=5,
                     temperature=args.temperature,
@@ -1268,22 +1342,6 @@ def main():
                     bad_words_ids=[[628], [198]] if True else None,
                     num_return_sequences=1,
                 )  # output_sequence が生成結果
-            # elif decode_mode == 'greedy':  # 生成する
-            #     output_sequences = gpt2.generate(
-            #         inputs_embeds=inputs_embeds,
-            #         emb_match=None,
-            #         control_code=None,
-            #         past_key_values=prompt,
-            #         max_length=args.length + len(encoded_prompt[0]),
-            #         min_length=5,
-            #         temperature=args.temperature,
-            #         top_k=args.k,
-            #         top_p=0.5,
-            #         bad_words_ids=[[628], [198]] if True else None,
-            #         repetition_penalty=args.repetition_penalty,
-            #         do_sample=False,
-            #         num_return_sequences=1,
-            #     )
                 print(f'output_sequences : {output_sequences}')
 
         # elif args.tuning_mode == 'finetune':
