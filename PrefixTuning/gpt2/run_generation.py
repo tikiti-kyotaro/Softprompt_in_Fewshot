@@ -1253,41 +1253,12 @@ def main():
                     num_return_sequences=1,
                 )
                 # print(output_sequences)
-            elif decode_mode == 'greedy':  # 生成する
-                with open("/home/kyotaro/prompt-order/contexts/prompt_sample_6.txt", "r") as in_:
-                    for i, line in enumerate(in_):
-                        # 各 context に対して ID を生成
-                        line = line.strip()
-                        new_encoded_prompt = tokenizer.encode(line, add_special_tokens=False, return_tensors="pt")  # 重要ポイント
-                        new_encoded_prompt = new_encoded_prompt.to(args.device)
-                        if encoded_prompt.size()[-1] == 0:
-                            new_input_ids = None
-                        else:
-                            new_input_ids = new_encoded_prompt
-                        # 各 ID に対して GPT2 を適用
+
                         output = gpt2(
                             input_ids=new_input_ids,
                             emb_match=None,
                             control_code=None,
-                            past_key_values=prompt,  # ここに入るものを Prefix のモデルでいじってる？
-                            return_dict=True,
-                            use_cache=True
-                        )
-                        # print(f'len(output.past_key_values) : {len(output.past_key_values)}')
-                        # print(f'past_key_values.shape : {output.past_key_values[0].shape}')
-                        if i == 0:
-                            new_prompt = output.past_key_values
-                            # print(f'new_prompt[0].shape : {new_prompt[0].shape}')
-                        else:
-                            # new_prompt : 今までのprompt, prompt[0] : soft prompt, output.past_key_values[0] : context の 情報 
-                            replace_tensor = []
-                            for i, (x, y, z) in enumerate(zip(new_prompt, prompt, output.past_key_values)):
-                                replace_tensor.append(torch.cat((x, y, z), dim=3))
-                            new_prompt = tuple(replace_tensor)
-                            # print(new_prompt[0].shape)
-                            # print(len(new_prompt))
-                            # new_prompt = torch.cat((new_prompt, prompt), dim=3)
-                        # print(f'new_prompt.shape : {new_prompt.shape}')
+
 
                     new_prompt = [x.expand(-1, args.num_return_sequences , -1, -1, -1) for x in new_prompt]  # ここがsoft prompt(prefix)？
                         # print(f'new_prompt.shape : {new_prompt[0].shape}')
